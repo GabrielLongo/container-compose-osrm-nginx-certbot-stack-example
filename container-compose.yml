@@ -1,0 +1,47 @@
+version: '3'
+services:
+ 
+  application:
+    image: osrm-application
+    build: ./application
+  volumes:
+    - ./container-stack-data/osrm:/data:z
+  deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s  
+
+  nginx:
+    image: osrm-nginx-proxy
+    build: ./nginx-proxy
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./container-stack-data/nginx:/etc/nginx/conf.d:z
+      - ./container-stack-data/certbot/conf:/etc/letsencrypt:z
+      - ./container-stack-data/certbot/www:/var/www/certbot:z
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  certbot:
+    image: certbot/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    volumes:
+    - ./container-stack-data/certbot/conf:/etc/letsencrypt:z
+    - ./container-stack-data/certbot/www:/var/www/certbot:z
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+# Reference: https://pentacent.medium.com/nginx-and-lets-encrypt-with-docker-in-less-than-5-minutes-b4b8a60d3a71
